@@ -4,11 +4,9 @@ using System.Runtime.CompilerServices;
 
 namespace Poly.VecEcs
 {
-    #region Entity
-    public struct EcsEntity
+    public struct EntityInternal
     {
         public short Version;
         public short ComponentCount;
     }
-    #endregion
 }

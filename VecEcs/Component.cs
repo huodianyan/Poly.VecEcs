@@ -1,10 +1,10 @@
 ﻿using System;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 
 namespace Poly.VecEcs
 {
-    #region Component
-    public interface IEcsComponentArray
+    public interface IComponentArray
     {
         byte ComponentId { get; }
         Type ComponentType { get; }
@@ -15,31 +15,44 @@ namespace Poly.VecEcs
         object Get(int entity);
         //void Set(int entity, object dataRaw);
     }
-    //public interface IComponentArray<T> : IEcsComponentArray// where T : struct
-    //{
-    //    ref T Add(int entity);
-    //    new ref T Get(int entity);
-    //    //new void Set(int entity, T dataRaw);
-    //}
-    public class EcsComponentArray<T> : IEcsComponentArray where T : struct
+    public class BufferArray<T> : ComponentArray<DynamicBuffer<T>> where T : struct
     {
-        private readonly Type compType;
-        private readonly EcsWorld world;
-        private readonly byte compId;
+        internal BufferArray(World world, byte id, int entityCapacity) : base(world, id, entityCapacity)
+        {
+        }
+        protected override DynamicBuffer<T> CreateComp()
+        {
+            return new DynamicBuffer<T>(OnChanged, 4);
+        }
+
+        internal void OnChanged(EBufferOperation op, int index, T item)
+        {
+            Console.WriteLine($"{GetType().Name}.OnChanged: {op},{index},{item}");
+        }
+    }
+    public class ComponentArray<T> : IComponentArray where T : struct
+    {
+        protected readonly Type compType;
+        protected readonly World world;
+        protected readonly byte compId;
+        //private readonly MethodInfo bufferCreateMethod;
         // 1-based index.
-        private T[] comps;
-        private int compsCount;
-        private int[] entityCompIndexs;
-        private int[] recycledCompIndexs;
-        private int recycledCompCount;
+        protected T[] comps;
+        protected int compsCount;
+        protected int[] entityCompIndexs;
+        protected int[] recycledCompIndexs;
+        protected int recycledCompCount;
 
         public byte ComponentId => compId;
         public Type ComponentType => compType;
         //public T[] Comps => comps;
 
-        internal EcsComponentArray(EcsWorld world, byte id, int entityCapacity)
+        internal ComponentArray(World world, byte id, int entityCapacity)
         {
             compType = typeof(T);
+            //isBuffer = compType.GetGenericTypeDefinition() == typeof(DynamicBuffer<>);
+            //if(isBuffer)
+            //    bufferCreateMethod = compType.GetMethod("Create",BindingFlags.Instance | BindingFlags.NonPublic);
             this.world = world;
             compId = id;
             comps = new T[entityCapacity / 4 + 1];
@@ -50,6 +63,17 @@ namespace Poly.VecEcs
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Resize(int capacity) => Array.Resize(ref entityCompIndexs, capacity);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Add(int entity, T comp)
+        {
+            ref var comRef = ref Add(entity);
+            comRef = comp;
+        }
+        protected virtual T CreateComp()
+        {
+            return default;
+        }
+
         public ref T Add(int entity)
         {
             if (!world.IsEntityValid(entity)) { throw new Exception("Cant touch destroyed entity."); }
@@ -64,6 +88,13 @@ namespace Poly.VecEcs
                 compsCount++;
             }
             entityCompIndexs[entity] = idx;
+            //if (isBuffer)
+            //{
+            //    var comp = default(T);
+            //    bufferCreateMethod.Invoke(comp, new object[] { 4 });
+            //    comps[idx] = comp;
+            //}
+            comps[idx] = CreateComp();
             world.OnComponentAdded(entity, compId);
             return ref comps[idx];
         }
@@ -87,6 +118,7 @@ namespace Poly.VecEcs
             if (compIndex == 0) return;
             if (recycledCompCount == recycledCompIndexs.Length) Array.Resize(ref recycledCompIndexs, recycledCompCount << 1);
             recycledCompIndexs[recycledCompCount++] = compIndex;
+            if (comps[compIndex] is IDisposable disposable) disposable.Dispose();
             comps[compIndex] = default;
             compIndex = 0;
             world.OnComponentRemoved(entity, compId);
@@ -97,7 +129,7 @@ namespace Poly.VecEcs
             if (entityCompIndexs[entity] <= 0) { throw new Exception($"Component \"{typeof(T).Name}\" not attached to entity."); }
             comps[entityCompIndexs[entity]] = comp;
         }
-        object IEcsComponentArray.Get(int entity) => Get(entity);
+        object IComponentArray.Get(int entity) => Get(entity);
         //void IEcsComponentArray.Set(int entity, object dataRaw)
         //{
         //    if (dataRaw == null || dataRaw.GetType() != compType) { throw new Exception($"Invalid component data, valid \"{typeof (T).Name}\" instance required."); }
@@ -105,5 +137,4 @@ namespace Poly.VecEcs
         //    comps[entityCompIndexs[entity]] = (T)dataRaw;
         //}
     }
-    #endregion
 }

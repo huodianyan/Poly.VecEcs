@@ -4,8 +4,7 @@ using System.Runtime.CompilerServices;
 
 namespace Poly.VecEcs
 {
-    #region World
-    public class EcsWorld
+    public class World
     {
         //world
         private readonly string id;
@@ -13,34 +12,34 @@ namespace Poly.VecEcs
         private bool isInited;
         private bool isDestroyed;
         //Entity
-        internal EcsEntity[] entityDatas;
+        internal EntityInternal[] entities;
         private int entityCount;
         private int[] recycledEntities;
         private int recycledEntityCount;
         //Component
-        internal IEcsComponentArray[] compArrays;
+        internal IComponentArray[] compArrays;
         private byte compArrayCount;
-        private readonly Dictionary<Type, IEcsComponentArray> compArrayDict;
+        private readonly Dictionary<Type, IComponentArray> compArrayDict;
         //Query
-        private readonly Dictionary<int, EcsQuery> queryDict;
-        private readonly List<EcsQuery> queryList;
-        private List<EcsQuery>[] allQueryLists;
-        private List<EcsQuery>[] anyQueryLists;
-        private List<EcsQuery>[] noneQueryLists;
-        private EcsQueryDesc[] recycledQueryDescs;
+        private readonly Dictionary<int, Query> queryDict;
+        private readonly List<Query> queryList;
+        private List<Query>[] allQueryLists;
+        private List<Query>[] anyQueryLists;
+        private List<Query>[] noneQueryLists;
+        private QueryDesc[] recycledQueryDescs;
         private int recycledQueryDescCount;
         //System
-        private Dictionary<Type, IEcsSystem> systemDict;
-        private List<IEcsSystem> systemList;
+        private Dictionary<Type, ISystem> systemDict;
+        private List<ISystem> systemList;
         //private IRunSystem[] runSystems;
         //private int runSystemCount;
 
         public string Id => id;
         public int EntityCount => entityCount - recycledEntityCount;
-        public int WorldSize => entityDatas.Length;
-        public IList<IEcsSystem> SystemList => systemList;
-        public IList<EcsQuery> QueryList => queryList;
-        public IDictionary<Type, IEcsComponentArray> CompArrayDict => compArrayDict;
+        public int WorldSize => entities.Length;
+        public IList<ISystem> SystemList => systemList;
+        public IList<Query> QueryList => queryList;
+        public IDictionary<Type, IComponentArray> CompArrayDict => compArrayDict;
         //public bool IsAlive => !isDestroyed;
 
         public event Action<int> WorldResizedEvent;
@@ -49,40 +48,40 @@ namespace Poly.VecEcs
         public event Action<int, int> EntityComponentAddedEvent;
         public event Action<int, int> EntityComponentRemovedEvent;
         //public event Action<int, int> EntityComponentChangedEvent;
-        public event Action<EcsQuery> QueryCreatedEvent;
+        public event Action<Query> QueryCreatedEvent;
 
-        public EcsWorld(string id = "Default", object shared = null, in Config cfg = default)
+        public World(string id = "Default", object shared = null, in Config cfg = default)
         {
             //world
             this.id = id;
             this.shared = shared;
             // entities.
             var capacity = cfg.EntityCapacity > 0 ? cfg.EntityCapacity : Config.EntityCapacityDefault;
-            entityDatas = new EcsEntity[capacity];
+            entities = new EntityInternal[capacity];
             capacity = cfg.RecycledEntityCapacity > 0 ? cfg.RecycledEntityCapacity : Config.RecycledEntityCapacityDefault;
             recycledEntities = new int[capacity];
             entityCount = 0;
             recycledEntityCount = 0;
             // component
             //capacity = cfg.ComponentCapacity > 0 ? cfg.ComponentCapacity : Config.ComponentCapacityDefault;
-            compArrays = new IEcsComponentArray[256];
-            compArrayDict = new Dictionary<Type, IEcsComponentArray>(256);
-            allQueryLists = new List<EcsQuery>[256];
-            anyQueryLists = new List<EcsQuery>[256];
-            noneQueryLists = new List<EcsQuery>[256];
+            compArrays = new IComponentArray[256];
+            compArrayDict = new Dictionary<Type, IComponentArray>(256);
+            allQueryLists = new List<Query>[256];
+            anyQueryLists = new List<Query>[256];
+            noneQueryLists = new List<Query>[256];
             //compTypeSize = cfg.PoolDenseSize > 0 ? cfg.PoolDenseSize : Config.PoolDenseSizeDefault;
             //recycledCompSize = cfg.PoolRecycledSize > 0 ? cfg.PoolRecycledSize : Config.PoolRecycledSizeDefault;
             compArrayCount = 0;
             // query
             capacity = cfg.QueryCapacity > 0 ? cfg.QueryCapacity : Config.QueryCapacityDefault;
-            queryDict = new Dictionary<int, EcsQuery>(capacity);
-            queryList = new List<EcsQuery>(capacity);
-            recycledQueryDescs = new EcsQueryDesc[64];
+            queryDict = new Dictionary<int, Query>(capacity);
+            queryList = new List<Query>(capacity);
+            recycledQueryDescs = new QueryDesc[64];
             recycledQueryDescCount = 0;
             //system
             //capacity = cfg.SystemCapacity > 0 ? cfg.SystemCapacity : Config.SystemCapacityDefault;
-            systemDict = new Dictionary<Type, IEcsSystem>();
-            systemList = new List<IEcsSystem>();
+            systemDict = new Dictionary<Type, ISystem>();
+            systemList = new List<ISystem>();
             //runSystems = new IRunSystem[capacity];
             //runSystemCount = 0;
             //isDestroyed = false;
@@ -93,19 +92,19 @@ namespace Poly.VecEcs
             //Entity
             for (var i = entityCount - 1; i >= 0; i--)
             {
-                ref var entityData = ref entityDatas[i];
+                ref var entityData = ref entities[i];
                 if (entityData.ComponentCount > 0)
                     DestroyEntity(i);
             }
             //Component
-            compArrays = Array.Empty<IEcsComponentArray>();
+            compArrays = Array.Empty<IComponentArray>();
             compArrayDict.Clear();
             //Query
             queryDict.Clear();
             queryList.Clear();
-            allQueryLists = Array.Empty<List<EcsQuery>>();
-            anyQueryLists = Array.Empty<List<EcsQuery>>();
-            noneQueryLists = Array.Empty<List<EcsQuery>>();
+            allQueryLists = Array.Empty<List<Query>>();
+            anyQueryLists = Array.Empty<List<Query>>();
+            noneQueryLists = Array.Empty<List<Query>>();
             compArrayCount = 0;
             recycledQueryDescs = null;
             //System
@@ -136,17 +135,17 @@ namespace Poly.VecEcs
             if (recycledEntityCount > 0)
             {
                 entity = recycledEntities[--recycledEntityCount];
-                ref var entityData = ref entityDatas[entity];
+                ref var entityData = ref entities[entity];
                 entityData.Version = (short)-entityData.Version;
             }
             else
             {
                 // new entity.
-                if (entityCount == entityDatas.Length)
+                if (entityCount == entities.Length)
                 {
                     // resize entities and component pools.
                     var newSize = entityCount << 1;
-                    Array.Resize(ref entityDatas, newSize);
+                    Array.Resize(ref entities, newSize);
                     for (int i = 0, iMax = compArrayCount; i < iMax; i++)
                         compArrays[i].Resize(newSize);
                     for (int i = 0, iMax = queryList.Count; i < iMax; i++)
@@ -154,7 +153,7 @@ namespace Poly.VecEcs
                     WorldResizedEvent?.Invoke(newSize);
                 }
                 entity = entityCount++;
-                entityDatas[entity].Version = 1;
+                entities[entity].Version = 1;
             }
             EntityCreatedEvent?.Invoke(entity);
             return entity;
@@ -162,7 +161,7 @@ namespace Poly.VecEcs
         public void DestroyEntity(int entity)
         {
             if (entity < 0 || entity >= entityCount) { throw new Exception("Cant touch destroyed entity."); }
-            ref var entityData = ref entityDatas[entity];
+            ref var entityData = ref entities[entity];
             if (entityData.Version < 0)
                 return;
             // kill components.
@@ -192,17 +191,17 @@ namespace Poly.VecEcs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsEntityValid(int entity)
         {
-            return entity >= 0 && entity < entityCount && entityDatas[entity].Version > 0;
+            return entity >= 0 && entity < entityCount && entities[entity].Version > 0;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetEntityComponentCount(int entity)
         {
-            return entityDatas[entity].ComponentCount;
+            return entities[entity].ComponentCount;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public short GetEntityVersion(int entity)
         {
-            return entityDatas[entity].Version;
+            return entities[entity].Version;
         }
         public int GetAllEntities(ref int[] entities)
         {
@@ -212,7 +211,7 @@ namespace Poly.VecEcs
             var id = 0;
             for (int i = 0, iMax = entityCount; i < iMax; i++)
             {
-                ref var entityData = ref entityDatas[i];
+                ref var entityData = ref this.entities[i];
                 // should we skip empty entities here?
                 if (entityData.Version > 0 && entityData.ComponentCount >= 0)
                     entities[id++] = i;
@@ -221,7 +220,7 @@ namespace Poly.VecEcs
         }
         public int GetComponents(int entity, ref object[] list)
         {
-            var compCount = entityDatas[entity].ComponentCount;
+            var compCount = entities[entity].ComponentCount;
             if (compCount == 0) { return 0; }
             if (list == null || list.Length < compCount)
                 list = new object[compCount];
@@ -234,7 +233,7 @@ namespace Poly.VecEcs
         }
         public int GetComponentTypes(int entity, ref Type[] list)
         {
-            var compCount = entityDatas[entity].ComponentCount;
+            var compCount = entities[entity].ComponentCount;
             if (compCount == 0) { return 0; }
             if (list == null || list.Length < compCount)
                 list = new Type[compCount];
@@ -278,7 +277,7 @@ namespace Poly.VecEcs
                         query.RemoveEntity(entity);
                 }
             }
-            entityDatas[entity].ComponentCount++;
+            entities[entity].ComponentCount++;
             EntityComponentAddedEvent?.Invoke(entity, compId);
         }
         internal void OnComponentRemoved(int entity, byte compId)
@@ -313,110 +312,115 @@ namespace Poly.VecEcs
                     }
                 }
             }
-            ref var entityData = ref entityDatas[entity];
+            ref var entityData = ref entities[entity];
             entityData.ComponentCount--;
             if (entityData.ComponentCount == 0)
                 DestroyEntity(entity);
             EntityComponentRemovedEvent?.Invoke(entity, compId);
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref T AddComponent<T>(int entity) where T : struct
-        {
-            var compArray = GetComponentArray<T>();
-            return ref compArray.Add(entity);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref T AddComponent<T>(int entity, byte compId) where T : struct
-        {
-            var compArray = GetComponentArray<T>(compId);
-            return ref compArray.Add(entity);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void AddComponent<T>(int entity, T addComp) where T : struct
-        {
-            var compArray = GetComponentArray<T>();
-            ref var comp = ref compArray.Add(entity);
-            comp = addComp;
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void AddComponent<T>(int entity, T addComp, byte compId) where T : struct
-        {
-            var compArray = GetComponentArray<T>(compId);
-            ref var comp = ref compArray.Add(entity);
-            comp = addComp;
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetComponent<T>(int entity, T comp) where T : struct
-        {
-            var compArray = GetComponentArray<T>();
-            compArray.Set(entity, comp);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetComponent<T>(int entity, T comp, byte compId) where T : struct
-        {
-            var compArray = GetComponentArray<T>(compId);
-            compArray.Set(entity, comp);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void RemoveComponent<T>(int entity) where T : struct
-        {
-            var compArray = GetComponentArray<T>();
-            compArray.Remove(entity);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void RemoveComponent<T>(int entity, byte compId) where T : struct
-        {
-            var compArray = GetComponentArray<T>(compId);
-            compArray.Remove(entity);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref T GetComponent<T>(int entity) where T : struct
-        {
-            var compArray = GetComponentArray<T>();
-            return ref compArray.Get(entity);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref T GetComponent<T>(int entity, byte compId) where T : struct
-        {
-            var compArray = GetComponentArray<T>(compId);
-            return ref compArray.Get(entity);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool HasComponent<T>(int entity) where T : struct
-        {
-            var compArray = GetComponentArray<T>();
-            return compArray.Has(entity);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool HasComponent<T>(int entity, byte compId) where T : struct
-        {
-            var compArray = GetComponentArray<T>(compId);
-            return compArray.Has(entity);
-        }
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public ref T AddComponent<T>(int entity) where T : struct
+        //{
+        //    var compArray = GetComponentArray<T>();
+        //    return ref compArray.Add(entity);
+        //}
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public ref T AddComponent<T>(int entity, byte compId) where T : struct
+        //{
+        //    var compArray = GetComponentArray<T>(compId);
+        //    return ref compArray.Add(entity);
+        //}
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public void AddComponent<T>(int entity, T addComp) where T : struct
+        //{
+        //    var compArray = GetComponentArray<T>();
+        //    ref var comp = ref compArray.Add(entity);
+        //    comp = addComp;
+        //}
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public void AddComponent<T>(int entity, T addComp, byte compId) where T : struct
+        //{
+        //    var compArray = GetComponentArray<T>(compId);
+        //    ref var comp = ref compArray.Add(entity);
+        //    comp = addComp;
+        //}
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public void SetComponent<T>(int entity, T comp) where T : struct
+        //{
+        //    var compArray = GetComponentArray<T>();
+        //    compArray.Set(entity, comp);
+        //}
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public void SetComponent<T>(int entity, T comp, byte compId) where T : struct
+        //{
+        //    var compArray = GetComponentArray<T>(compId);
+        //    compArray.Set(entity, comp);
+        //}
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public void RemoveComponent<T>(int entity) where T : struct
+        //{
+        //    var compArray = GetComponentArray<T>();
+        //    compArray.Remove(entity);
+        //}
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public void RemoveComponent<T>(int entity, byte compId) where T : struct
+        //{
+        //    var compArray = GetComponentArray<T>(compId);
+        //    compArray.Remove(entity);
+        //}
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public ref T GetComponent<T>(int entity) where T : struct
+        //{
+        //    var compArray = GetComponentArray<T>();
+        //    return ref compArray.Get(entity);
+        //}
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public ref T GetComponent<T>(int entity, byte compId) where T : struct
+        //{
+        //    var compArray = GetComponentArray<T>(compId);
+        //    return ref compArray.Get(entity);
+        //}
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public bool HasComponent<T>(int entity) where T : struct
+        //{
+        //    var compArray = GetComponentArray<T>();
+        //    return compArray.Has(entity);
+        //}
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public bool HasComponent<T>(int entity, byte compId) where T : struct
+        //{
+        //    var compArray = GetComponentArray<T>(compId);
+        //    return compArray.Has(entity);
+        //}
         #endregion
 
         #region Component
-        public EcsComponentArray<T> GetComponentArray<T>() where T : struct
+        public BufferArray<T> GetBufferArray<T>() where T : struct
+        {
+            var compType = typeof(DynamicBuffer<T>);
+            if (compArrayDict.TryGetValue(compType, out var existArray))
+                return (BufferArray<T>)existArray;
+            var compArray = new BufferArray<T>(this, compArrayCount, entities.Length);
+            compArrayDict[compType] = compArray;
+            compArrays[compArrayCount++] = compArray;
+            return compArray;
+        }
+        public ComponentArray<T> GetComponentArray<T>() where T : struct
         {
             var compType = typeof(T);
             if (compArrayDict.TryGetValue(compType, out var existArray))
-                return (EcsComponentArray<T>)existArray;
-            var compArray = new EcsComponentArray<T>(this, compArrayCount, entityDatas.Length);
+                return (ComponentArray<T>)existArray;
+            var compArray = new ComponentArray<T>(this, compArrayCount, entities.Length);
+            //if (compType.IsGenericType && compType.GetGenericTypeDefinition() == typeof(DynamicBuffer<>))
+            //    compArray = typeof(BufferArray<>).MakeGenericType(compType.GenericTypeArguments[0]);
             compArrayDict[compType] = compArray;
-            //if (compArrayCount == compArrays.Length)
-            //{
-            //    var newSize = compArrayCount << 1;
-            //    Array.Resize(ref compArrays, newSize);
-            //    Array.Resize(ref allQueryLists, newSize);
-            //    Array.Resize(ref noneQueryLists, newSize);
-            //}
             compArrays[compArrayCount++] = compArray;
             return compArray;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsComponentArray<T> GetComponentArray<T>(byte compId) where T : struct
+        public ComponentArray<T> GetComponentArray<T>(byte compId) where T : struct
         {
-            return compId >= 0 && compId < compArrayCount ? (EcsComponentArray<T>)compArrays[compId] : null;
+            return compId >= 0 && compId < compArrayCount ? (ComponentArray<T>)compArrays[compId] : null;
         }
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         //public IEcsComponentArray GetComponentArray(Type type)
@@ -436,7 +440,7 @@ namespace Poly.VecEcs
         #endregion
 
         #region Query
-        public EcsQuery GetQuery(EcsQueryDesc questDesc)
+        public Query GetQuery(QueryDesc questDesc)
         {
             //questDesc.Build();
             var hash = questDesc.hash;
@@ -447,7 +451,7 @@ namespace Poly.VecEcs
                 recycledQueryDescs[recycledQueryDescCount++] = questDesc;
                 return query;
             }
-            query = new EcsQuery(this, questDesc, entityDatas.Length / 4, entityDatas.Length);
+            query = new Query(this, questDesc, entities.Length / 4, entities.Length);
             queryDict[hash] = query;
             queryList.Add(query);
             // add to component dictionaries for fast compatibility scan.
@@ -456,7 +460,7 @@ namespace Poly.VecEcs
                 var list = allQueryLists[questDesc.all[i]];
                 if (list == null)
                 {
-                    list = new List<EcsQuery>(8);
+                    list = new List<Query>(8);
                     allQueryLists[questDesc.all[i]] = list;
                 }
                 list.Add(query);
@@ -466,7 +470,7 @@ namespace Poly.VecEcs
                 var list = anyQueryLists[questDesc.any[i]];
                 if (list == null)
                 {
-                    list = new List<EcsQuery>(8);
+                    list = new List<Query>(8);
                     anyQueryLists[questDesc.any[i]] = list;
                 }
                 list.Add(query);
@@ -476,7 +480,7 @@ namespace Poly.VecEcs
                 var list = noneQueryLists[questDesc.none[i]];
                 if (list == null)
                 {
-                    list = new List<EcsQuery>(8);
+                    list = new List<Query>(8);
                     noneQueryLists[questDesc.none[i]] = list;
                 }
                 list.Add(query);
@@ -484,7 +488,7 @@ namespace Poly.VecEcs
             // scan exist entities for compatibility with new filter.
             for (int i = 0, iMax = entityCount; i < iMax; i++)
             {
-                ref var entityData = ref entityDatas[i];
+                ref var entityData = ref entities[i];
                 if (entityData.ComponentCount > 0 && query.Marches(i))
                     query.AddEntity(i);
             }
@@ -492,9 +496,9 @@ namespace Poly.VecEcs
             return query;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsQueryDesc CreateQueryDesc()
+        public QueryDesc CreateQueryDesc()
         {
-            return recycledQueryDescCount > 0 ? recycledQueryDescs[--recycledQueryDescCount] : new EcsQueryDesc(this);
+            return recycledQueryDescCount > 0 ? recycledQueryDescs[--recycledQueryDescCount] : new QueryDesc(this);
         }
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         //bool IsMaskCompatible(EcsQueryDesc queryDesc, int entity)
@@ -508,12 +512,12 @@ namespace Poly.VecEcs
         #endregion
 
         #region System
-        public IEcsSystem GetSystem(Type type)
+        public ISystem GetSystem(Type type)
         {
             systemDict.TryGetValue(type, out var system);
             return system;
         }
-        public void AddSystem(IEcsSystem system)
+        public void AddSystem(ISystem system)
         {
             var type = system.GetType();
             if (systemDict.ContainsKey(type))
@@ -523,7 +527,7 @@ namespace Poly.VecEcs
             if (isInited)
                 system.Init(this);
         }
-        public void DestroySystem(IEcsSystem system)
+        public void DestroySystem(ISystem system)
         {
             if (isDestroyed) return;
             var type = system.GetType();
@@ -550,5 +554,4 @@ namespace Poly.VecEcs
         }
     }
 
-    #endregion
 }

@@ -4,11 +4,10 @@ using System.Runtime.CompilerServices;
 
 namespace Poly.VecEcs
 {
-    #region System
-    public interface IEcsSystem : IDisposable
+    public interface ISystem : IDisposable
     {
         //IWorld World { get; set; }
-        void Init(EcsWorld world);
+        void Init(World world);
         void Update();
     }
     //public interface IInitSystem : IEcsSystem
@@ -25,5 +24,4 @@ namespace Poly.VecEcs
     //{
     //    void Destroy(IWorld world);
     //}
-    #endregion
 }

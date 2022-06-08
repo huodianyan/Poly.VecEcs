@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Poly.VecEcs", "VecEcs\Poly.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Poly.VecEcs.Test", "VecEcs.Test\Poly.VecEcs.Test.csproj", "{C0F116DC-36A9-4B19-A5FF-F61762B9F95E}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Poly.Collections", "..\Poly.Collections\Collections\Poly.Collections.csproj", "{1C854960-4A3D-4ED0-9F43-BB4BF9780E96}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{C0F116DC-36A9-4B19-A5FF-F61762B9F95E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C0F116DC-36A9-4B19-A5FF-F61762B9F95E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C0F116DC-36A9-4B19-A5FF-F61762B9F95E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1C854960-4A3D-4ED0-9F43-BB4BF9780E96}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1C854960-4A3D-4ED0-9F43-BB4BF9780E96}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1C854960-4A3D-4ED0-9F43-BB4BF9780E96}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1C854960-4A3D-4ED0-9F43-BB4BF9780E96}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

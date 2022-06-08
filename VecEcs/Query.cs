@@ -4,10 +4,9 @@ using System.Runtime.CompilerServices;
 
 namespace Poly.VecEcs
 {
-    #region Query
-    public sealed class EcsQueryDesc
+    public sealed class QueryDesc
     {
-        private readonly EcsWorld world;
+        private readonly World world;
         internal byte[] all;
         internal byte[] any;
         internal byte[] none;
@@ -16,7 +15,7 @@ namespace Poly.VecEcs
         internal int noneCount;
         internal int hash;
 
-        public EcsQueryDesc(EcsWorld world)
+        public QueryDesc(World world)
         {
             this.world = world;
             all = new byte[4];
@@ -26,7 +25,7 @@ namespace Poly.VecEcs
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Reset() => hash = allCount = anyCount = noneCount = 0;
-        public EcsQueryDesc Build()
+        public QueryDesc Build()
         {
             if (allCount > 1) Array.Sort(all, 0, allCount);
             if (anyCount > 1) Array.Sort(any, 0, anyCount);
@@ -50,20 +49,20 @@ namespace Poly.VecEcs
             if (allCount == all.Length) { Array.Resize(ref all, allCount << 1); }
             all[allCount++] = compId;
         }
-        public EcsQueryDesc WithAll(params byte[] compIds)
+        public QueryDesc WithAll(params byte[] compIds)
         {
             foreach (var compId in compIds) WithAll(compId);
             return this;
         }
-        public EcsQueryDesc WithAll(params Type[] types)
+        public QueryDesc WithAll(params Type[] types)
         {
             foreach (var type in types) WithAll(world.GetComponentId(type));
             return this;
         }
-        public EcsQueryDesc WithAll<T0>() where T0 : struct => WithAll(typeof(T0));
-        public EcsQueryDesc WithAll<T0, T1>() where T0 : struct where T1 : struct => WithAll(typeof(T0), typeof(T1));
-        public EcsQueryDesc WithAll<T0, T1, T2>() where T0 : struct where T1 : struct where T2 : struct => WithAll(typeof(T0), typeof(T1), typeof(T2));
-        public EcsQueryDesc WithAll<T0, T1, T2, T3>() where T0 : struct where T1 : struct where T2 : struct where T3 : struct => WithAll(typeof(T0), typeof(T1), typeof(T2), typeof(T3));
+        public QueryDesc WithAll<T0>() where T0 : struct => WithAll(typeof(T0));
+        public QueryDesc WithAll<T0, T1>() where T0 : struct where T1 : struct => WithAll(typeof(T0), typeof(T1));
+        public QueryDesc WithAll<T0, T1, T2>() where T0 : struct where T1 : struct where T2 : struct => WithAll(typeof(T0), typeof(T1), typeof(T2));
+        public QueryDesc WithAll<T0, T1, T2, T3>() where T0 : struct where T1 : struct where T2 : struct where T3 : struct => WithAll(typeof(T0), typeof(T1), typeof(T2), typeof(T3));
         #endregion
 
         #region Any
@@ -73,19 +72,19 @@ namespace Poly.VecEcs
             if (anyCount == any.Length) { Array.Resize(ref any, anyCount << 1); }
             any[anyCount++] = compId;
         }
-        public EcsQueryDesc WithAny(params byte[] compIds)
+        public QueryDesc WithAny(params byte[] compIds)
         {
             foreach (var compId in compIds) WithAny(compId);
             return this;
         }
-        public EcsQueryDesc WithAny(params Type[] types)
+        public QueryDesc WithAny(params Type[] types)
         {
             foreach (var type in types) WithAny(world.GetComponentId(type));
             return this;
         }
-        public EcsQueryDesc WithAny<T0>() where T0 : struct => WithAny(typeof(T0));
-        public EcsQueryDesc WithAny<T0, T1>() where T0 : struct where T1 : struct => WithAny(typeof(T0), typeof(T1));
-        public EcsQueryDesc WithAny<T0, T1, T2>() where T0 : struct where T1 : struct where T2 : struct => WithAny(typeof(T0), typeof(T1), typeof(T2));
+        public QueryDesc WithAny<T0>() where T0 : struct => WithAny(typeof(T0));
+        public QueryDesc WithAny<T0, T1>() where T0 : struct where T1 : struct => WithAny(typeof(T0), typeof(T1));
+        public QueryDesc WithAny<T0, T1, T2>() where T0 : struct where T1 : struct where T2 : struct => WithAny(typeof(T0), typeof(T1), typeof(T2));
         #endregion
 
         #region None
@@ -95,25 +94,25 @@ namespace Poly.VecEcs
             if (noneCount == none.Length) { Array.Resize(ref none, noneCount << 1); }
             none[noneCount++] = compId;
         }
-        public EcsQueryDesc WithNone(params byte[] compIds)
+        public QueryDesc WithNone(params byte[] compIds)
         {
             foreach (var compId in compIds) WithNone(compId);
             return this;
         }
-        public EcsQueryDesc WithNone(params Type[] types)
+        public QueryDesc WithNone(params Type[] types)
         {
             foreach (var type in types) WithNone(world.GetComponentId(type));
             return this;
         }
-        public EcsQueryDesc WithNone<T0>() where T0 : struct => WithNone(typeof(T0));
-        public EcsQueryDesc WithNone<T0, T1>() where T0 : struct where T1 : struct => WithNone(typeof(T0), typeof(T1));
-        public EcsQueryDesc WithNone<T0, T1, T2>() where T0 : struct where T1 : struct where T2 : struct => WithNone(typeof(T0), typeof(T1), typeof(T2));
+        public QueryDesc WithNone<T0>() where T0 : struct => WithNone(typeof(T0));
+        public QueryDesc WithNone<T0, T1>() where T0 : struct where T1 : struct => WithNone(typeof(T0), typeof(T1));
+        public QueryDesc WithNone<T0, T1, T2>() where T0 : struct where T1 : struct where T2 : struct => WithNone(typeof(T0), typeof(T1), typeof(T2));
         #endregion
     }
-    public sealed class EcsQuery
+    public sealed class Query
     {
-        private readonly EcsWorld world;
-        readonly EcsQueryDesc queryDesc;
+        private readonly World world;
+        readonly QueryDesc queryDesc;
         private int[] entities;
         private int entitiesCount;
         internal int[] entityIndexs;
@@ -123,12 +122,12 @@ namespace Poly.VecEcs
 
         public int Hash => queryDesc.hash;
         public int EntitiesCount => entitiesCount;
-        public EcsQueryDesc Desc => queryDesc;
+        public QueryDesc QueryDesc => queryDesc;
 
         public event Action<int> EntityAddedEvent;
         public event Action<int> EntityRemovedEvent;
 
-        internal EcsQuery(EcsWorld world, EcsQueryDesc desc, int queryCapacity, int entityCapacity)
+        internal Query(World world, QueryDesc desc, int queryCapacity, int entityCapacity)
         {
             this.world = world;
             this.queryDesc = desc;
@@ -214,12 +213,12 @@ namespace Poly.VecEcs
         }
         public struct Enumerator : IDisposable
         {
-            readonly EcsQuery query;
+            readonly Query query;
             readonly int[] entities;
             readonly int entityCount;
             int index;
 
-            public Enumerator(EcsQuery query)
+            public Enumerator(Query query)
             {
                 this.query = query;
                 entities = query.entities;
@@ -244,5 +243,4 @@ namespace Poly.VecEcs
             public int Entity;
         }
     }
-    #endregion
 }
